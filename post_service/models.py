@@ -6,6 +6,7 @@ from datetime import datetime
 class Post(BaseModel):
     post_id: int
     user_id: int
+    author: str
     title: str
     content: str
     created_at: str
@@ -29,6 +30,7 @@ db = {
         1: Post(
             post_id=1,
             user_id=1,
+            author="admin",
             title="Пост",
             content="Содержание",
             created_at="2025-06-07"

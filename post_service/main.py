@@ -14,11 +14,19 @@ app = FastAPI(
 async def check_user_exists(user_id: int):
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"http://localhost:8000/users/{user_id}")
-            return response.status_code == 200
+            response = await client.get(
+                f"http://localhost:8000/users/{user_id}",
+                timeout=5.0
+            )
+
+            if response.status_code == 404:
+                return None
+
+            return response.json()
+
     except httpx.RequestError as e:
-        print(f"Error checking user: {e}")
-        return False
+        print(f"Ошибка соединения с сервисом пользователей: {e}")
+        return None
 
 
 @app.get("/posts/", response_model=Dict[int, Post])
@@ -35,10 +43,11 @@ async def get_post(post_id: int):
 
 @app.post("/posts/", response_model=Post, status_code=201)
 async def create_post(post: PostCreate):
-    if not await check_user_exists(post.user_id):
+    user_data = await check_user_exists(post.user_id)
+    if not user_data:
         raise HTTPException(
             status_code=400,
-            detail=f"User with ID {post.user_id} does not exist"
+            detail=f"Пользователь с ID {post.user_id} не существует"
         )
 
     post_id = db["next_post_id"]
@@ -46,6 +55,7 @@ async def create_post(post: PostCreate):
     db["posts"][post_id] = Post(
         post_id=post_id,
         user_id=post.user_id,
+        author=user_data["username"],
         title=post.title,
         content=post.content,
         created_at=now

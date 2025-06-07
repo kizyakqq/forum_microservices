@@ -1,5 +1,5 @@
 from typing import Dict
-
+import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from models import User, UserCreate, UserUpdate, db
@@ -20,6 +20,32 @@ def get_user(user_id: int):
     if user_id not in db["users"]:
         raise HTTPException(status_code=404, detail="User not found")
     return db["users"][user_id]
+
+
+@app.get("/users/{user_id}/posts", response_model=Dict[int, Dict])
+async def get_user_posts(user_id: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"http://localhost:8001/posts/")
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Не удалось получить посты пользователя"
+                )
+
+            all_posts = response.json()
+            user_posts = {
+                post_id: post for post_id, post in all_posts.items()
+                if post["user_id"] == user_id
+            }
+
+            return user_posts
+
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Сервис постов недоступен: {e}"
+        )
 
 
 @app.post("/users/", response_model=User, status_code=201)
